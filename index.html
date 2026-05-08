@@ -2,8 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a3a6e" />
+  <meta name="description" content="서울온라인학교 정보안전부에서 운영하는 디지털 안전 학습 사이트" />
   <title>서울온라인학교 · 정보안전 학습관</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,12 +17,7 @@
   <div id="boot-screen" class="boot-screen">
     <div class="boot-logo">
       <div class="boot-logo-mark">
-        <svg viewBox="0 0 64 64" width="84" height="84" aria-hidden="true">
-          <rect x="4"  y="4"  width="26" height="26" fill="#7BB7E5"/>
-          <rect x="34" y="4"  width="26" height="26" fill="#3F8FCD"/>
-          <rect x="4"  y="34" width="26" height="26" fill="#1B6FB7"/>
-          <rect x="34" y="34" width="26" height="26" fill="#0A5AA0"/>
-        </svg>
+        <img src="logo.svg" alt="서울온라인학교" width="120" height="120" />
       </div>
       <div class="boot-school">서울온라인학교</div>
       <div class="boot-sub">정보안전 학습관</div>
@@ -35,6 +33,16 @@
        데스크톱
   ============================================= -->
   <div id="desktop" class="desktop hidden">
+
+    <!-- 바탕화면 로고(워터마크) -->
+    <div class="wallpaper-logo" aria-hidden="true">
+      <img src="logo.svg" alt="" />
+      <div class="wallpaper-name">서울온라인학교</div>
+      <div class="wallpaper-sub">정보안전 학습관</div>
+    </div>
+
+    <!-- 모바일 전용 빠른 실행 그리드 -->
+    <div class="mobile-launchpad" id="mobile-launchpad" aria-hidden="true"></div>
 
     <!-- 바탕화면 아이콘 -->
     <div class="desktop-icons" id="desktop-icons"></div>
@@ -205,12 +213,7 @@
     <div class="app-about">
       <div class="about-hero">
         <div class="about-logo">
-          <svg viewBox="0 0 64 64" width="64" height="64">
-            <rect x="4"  y="4"  width="26" height="26" fill="#7BB7E5"/>
-            <rect x="34" y="4"  width="26" height="26" fill="#3F8FCD"/>
-            <rect x="4"  y="34" width="26" height="26" fill="#1B6FB7"/>
-            <rect x="34" y="34" width="26" height="26" fill="#0A5AA0"/>
-          </svg>
+          <img src="logo.svg" alt="서울온라인학교" width="64" height="64" />
         </div>
         <div>
           <div class="about-title">서울온라인학교</div>

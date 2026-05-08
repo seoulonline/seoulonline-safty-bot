@@ -49,6 +49,12 @@
   };
 
   /* ==========================================================
+     모바일 감지
+  ========================================================== */
+  const isMobile = () => window.matchMedia('(max-width: 720px)').matches;
+  const taskbarHeight = () => isMobile() ? 48 : 40;
+
+  /* ==========================================================
      부팅
   ========================================================== */
   function boot() {
@@ -103,6 +109,38 @@
         if (e.key === 'Enter') openApp(a.id);
       });
       host.appendChild(icon);
+    });
+  }
+
+  function buildMobileLaunchpad() {
+    const host = $('#mobile-launchpad');
+    if (!host) return;
+    host.innerHTML = `
+      <div class="ml-header">
+        <img src="logo.svg" alt="" />
+        <div class="ml-title">서울온라인학교</div>
+        <div class="ml-sub">정보안전 학습관</div>
+      </div>
+      <div class="ml-grid"></div>
+    `;
+    const grid = host.querySelector('.ml-grid');
+    const subtitles = {
+      chatbot: '궁금한 점을 챗봇에게 물어보세요',
+      quiz: '8문항으로 점검하는 정보안전',
+      cards: '주제별 학습 카드 8장',
+      checklist: '오늘의 디지털 안전 점검',
+      resources: '도움이 되는 안내 자료',
+      about: '학습관 사용 안내',
+    };
+    apps.forEach(a => {
+      const btn = el('button', { cls: `ml-tile t-${a.tile.color}` });
+      btn.innerHTML = `
+        <div class="ml-ic">${a.icon}</div>
+        <div class="ml-name">${a.title}</div>
+        <div class="ml-desc">${subtitles[a.id] || ''}</div>
+      `;
+      btn.addEventListener('click', () => openApp(a.id));
+      grid.appendChild(btn);
     });
   }
 
@@ -246,43 +284,65 @@
 
     // 앱별 초기화
     initAppInstance(id, body);
+
+    // 모바일에서는 자동 최대화 (드래그·리사이즈 대신 풀스크린이 더 적합)
+    if (isMobile()) {
+      toggleMaximize(id);
+    }
   }
 
   function makeDraggable(winEl, handle) {
     let dragging = false;
     let startX = 0, startY = 0, origX = 0, origY = 0;
-    handle.addEventListener('mousedown', (e) => {
+
+    const getPoint = (e) => {
+      if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      return { x: e.clientX, y: e.clientY };
+    };
+
+    const onDown = (e) => {
       if (e.target.closest('.tb-btn')) return;
       const id = winEl.getAttribute('data-id');
       const w = state.windows[id];
       if (w?.maximized) return;
+      // 모바일에선 드래그 자체를 비활성 (창은 풀스크린)
+      if (isMobile()) return;
       dragging = true;
-      startX = e.clientX; startY = e.clientY;
+      const p = getPoint(e);
+      startX = p.x; startY = p.y;
       origX = parseInt(winEl.style.left) || 0;
       origY = parseInt(winEl.style.top) || 0;
       document.body.style.cursor = 'move';
-    });
-    document.addEventListener('mousemove', (e) => {
+    };
+    const onMove = (e) => {
       if (!dragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
+      const p = getPoint(e);
+      const dx = p.x - startX;
+      const dy = p.y - startY;
       const newX = origX + dx;
       const newY = Math.max(0, Math.min(window.innerHeight - 80, origY + dy));
       winEl.style.left = newX + 'px';
       winEl.style.top = newY + 'px';
-    });
-    document.addEventListener('mouseup', () => {
-      if (dragging) {
-        dragging = false;
-        document.body.style.cursor = '';
-        const id = winEl.getAttribute('data-id');
-        const w = state.windows[id];
-        if (w && !w.maximized) {
-          w.restore.x = parseInt(winEl.style.left);
-          w.restore.y = parseInt(winEl.style.top);
-        }
+      if (e.touches) e.preventDefault();
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      const id = winEl.getAttribute('data-id');
+      const w = state.windows[id];
+      if (w && !w.maximized) {
+        w.restore.x = parseInt(winEl.style.left);
+        w.restore.y = parseInt(winEl.style.top);
       }
-    });
+    };
+
+    handle.addEventListener('mousedown', onDown);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    handle.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
   }
 
   function activateWindow(id) {
@@ -790,15 +850,27 @@
     boot();
     buildDesktopIcons();
     buildStartMenu();
+    buildMobileLaunchpad();
     bindGlobalEvents();
     tickClock();
     setInterval(tickClock, 30 * 1000);
 
-    // 사용자가 처음 들어왔을 때 안내 창 살짝 안내
-    setTimeout(() => {
-      // 자동으로 챗봇을 열어 학생들이 바로 활용할 수 있게
-      openApp('about');
-    }, 2400);
+    // 데스크톱에서는 안내 창을 자동 노출, 모바일은 런치패드가 이미 보이므로 생략
+    if (!isMobile()) {
+      setTimeout(() => openApp('about'), 2400);
+    }
+
+    // 화면 회전·리사이즈 시 열려있는 창들의 모바일/데스크톱 모드 동기화
+    window.addEventListener('resize', () => {
+      const mobile = isMobile();
+      Object.values(state.windows).forEach(w => {
+        if (mobile && !w.maximized) {
+          // 모바일이 됐는데 일반 크기 창 → 강제 최대화
+          w.el.classList.add('maximized');
+          w.maximized = true;
+        }
+      });
+    });
   }
 
   document.addEventListener('DOMContentLoaded', init);
