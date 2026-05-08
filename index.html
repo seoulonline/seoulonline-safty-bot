@@ -41,9 +41,6 @@
       <div class="wallpaper-sub">정보안전 학습관</div>
     </div>
 
-    <!-- 모바일 전용 빠른 실행 그리드 -->
-    <div class="mobile-launchpad" id="mobile-launchpad" aria-hidden="true"></div>
-
     <!-- 바탕화면 아이콘 -->
     <div class="desktop-icons" id="desktop-icons"></div>
 
@@ -197,14 +194,39 @@
     </div>
   </template>
 
-  <!-- 자료실 -->
+  <!-- 자료 폴더 (파일 탐색기) -->
   <template id="tpl-resources">
-    <div class="app-resources">
-      <div class="res-header">
-        <div class="res-title">📁 자료실</div>
-        <div class="res-sub">정보안전과 관련된 신뢰할 수 있는 안내 자료입니다.</div>
+    <div class="app-explorer">
+      <div class="exp-toolbar">
+        <button class="exp-nav-btn" data-x-action="back" title="뒤로" disabled>◀</button>
+        <button class="exp-nav-btn" data-x-action="fwd"  title="앞으로" disabled>▶</button>
+        <button class="exp-nav-btn" data-x-action="up"   title="위로" disabled>▲</button>
+        <div class="exp-address">
+          <span class="exp-address-icon">📁</span>
+          <span class="exp-address-path">자료 폴더</span>
+        </div>
+        <button class="exp-nav-btn" data-x-action="refresh" title="새로 고침">⟳</button>
       </div>
-      <div class="res-list"></div>
+      <div class="exp-body">
+        <div class="exp-files"></div>
+      </div>
+      <div class="exp-status">
+        <span class="exp-count">0개 항목</span>
+        <span class="exp-hint">PDF · PPT 파일을 클릭하면 보기 창이 열려요</span>
+      </div>
+    </div>
+  </template>
+
+  <!-- 파일 뷰어 (PDF / PPTX) -->
+  <template id="tpl-viewer">
+    <div class="app-viewer">
+      <div class="viewer-toolbar">
+        <span class="viewer-icon"></span>
+        <span class="viewer-name"></span>
+        <span class="viewer-spacer"></span>
+        <a class="viewer-dl" download>⤓ 다운로드</a>
+      </div>
+      <div class="viewer-host"></div>
     </div>
   </template>
 
@@ -240,6 +262,8 @@
     </div>
   </template>
 
+  <!-- 자료 폴더 파일 목록 (선생님이 편집) -->
+  <script src="자료/files.js" onerror="window.MATERIAL_FILES = window.MATERIAL_FILES || [];"></script>
   <script src="app.js"></script>
 </body>
 </html>
