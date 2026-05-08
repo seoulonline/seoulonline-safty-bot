@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>서울온라인학교 · 정보안전 학습관</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ============================================
+       부팅 화면
+  ============================================= -->
+  <div id="boot-screen" class="boot-screen">
+    <div class="boot-logo">
+      <div class="boot-logo-mark">
+        <svg viewBox="0 0 64 64" width="84" height="84" aria-hidden="true">
+          <rect x="4"  y="4"  width="26" height="26" fill="#7BB7E5"/>
+          <rect x="34" y="4"  width="26" height="26" fill="#3F8FCD"/>
+          <rect x="4"  y="34" width="26" height="26" fill="#1B6FB7"/>
+          <rect x="34" y="34" width="26" height="26" fill="#0A5AA0"/>
+        </svg>
+      </div>
+      <div class="boot-school">서울온라인학교</div>
+      <div class="boot-sub">정보안전 학습관</div>
+    </div>
+    <div class="boot-spinner" aria-hidden="true">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="dot"></div><div class="dot"></div>
+    </div>
+    <div class="boot-text">시작하는 중...</div>
+  </div>
+
+  <!-- ============================================
+       데스크톱
+  ============================================= -->
+  <div id="desktop" class="desktop hidden">
+
+    <!-- 바탕화면 아이콘 -->
+    <div class="desktop-icons" id="desktop-icons"></div>
+
+    <!-- 데스크톱 위젯(달력/메모) -->
+    <div class="desktop-widgets">
+      <div class="widget widget-welcome">
+        <div class="widget-title">환영합니다, 학생 여러분!</div>
+        <div class="widget-body">
+          오늘은 <span id="widget-date"></span>입니다.<br/>
+          오른쪽 아래 <strong>시작</strong> 버튼을 누르거나 바탕화면 아이콘을 더블클릭해 학습을 시작해보세요.
+        </div>
+      </div>
+    </div>
+
+    <!-- 창들이 들어가는 컨테이너 -->
+    <div id="windows-container" class="windows-container"></div>
+
+    <!-- ==========================================
+         시작 메뉴
+    =========================================== -->
+    <div id="start-menu" class="start-menu" aria-hidden="true">
+      <div class="start-menu-left">
+        <div class="start-user">
+          <div class="user-avatar">👤</div>
+          <div class="user-name">학생</div>
+        </div>
+        <div class="start-app-list" id="start-app-list"></div>
+        <div class="start-bottom">
+          <div class="start-bottom-item" title="설정" data-action="info">
+            <span class="ico">⚙</span><span class="lbl">설정</span>
+          </div>
+          <div class="start-bottom-item" title="전원" data-action="shutdown">
+            <span class="ico">⏻</span><span class="lbl">전원</span>
+          </div>
+        </div>
+      </div>
+      <div class="start-menu-right">
+        <div class="tiles-section-title">정보안전 학습</div>
+        <div class="tiles" id="tiles"></div>
+        <div class="tiles-section-title second">학습 도구</div>
+        <div class="tiles" id="tiles2"></div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         작업 표시줄
+    =========================================== -->
+    <div class="taskbar" id="taskbar">
+      <button class="start-btn" id="start-btn" title="시작" aria-label="시작">
+        <svg viewBox="0 0 24 24" width="22" height="22">
+          <rect x="2"  y="2"  width="9" height="9" fill="currentColor"/>
+          <rect x="13" y="2"  width="9" height="9" fill="currentColor"/>
+          <rect x="2"  y="13" width="9" height="9" fill="currentColor"/>
+          <rect x="13" y="13" width="9" height="9" fill="currentColor"/>
+        </svg>
+      </button>
+
+      <div class="search-box" id="search-box">
+        <span class="search-icon">🔎</span>
+        <span class="search-text">검색하려면 여기에 입력하세요</span>
+      </div>
+
+      <div class="task-view" title="작업 보기">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6">
+          <rect x="2" y="4" width="14" height="14" rx="1"/>
+          <rect x="7" y="9" width="14" height="11" rx="1"/>
+        </svg>
+      </div>
+
+      <div class="taskbar-apps" id="taskbar-apps"></div>
+
+      <div class="system-tray">
+        <div class="tray-icons">
+          <span title="네트워크">🌐</span>
+          <span title="소리">🔊</span>
+          <span title="알림">💬</span>
+        </div>
+        <div class="clock" id="clock">
+          <div class="time" id="time">--:--</div>
+          <div class="date" id="date">----.--.--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       앱 콘텐츠 템플릿 (DOM에 미리 두고 JS가 복제)
+  ============================================= -->
+
+  <!-- 챗봇 도우미 -->
+  <template id="tpl-chatbot">
+    <div class="app-chatbot">
+      <div class="app-banner">
+        <div class="banner-title">🤖 챗봇 도우미</div>
+        <div class="banner-sub">궁금한 점은 챗봇에게 자유롭게 물어보세요. 정보안전, 디지털 시민, 수업 활동 등에 대한 질문을 환영합니다.</div>
+      </div>
+      <div class="chat-host">
+        <iframe
+          src="https://copilotstudio.microsoft.com/environments/f3d6ac12-b6ac-e1ba-a225-e2244d331288/bots/crcda_seoulonline_chatbot01/webchat?__version__=2"
+          frameborder="0"
+          title="서울온라인학교 챗봇"></iframe>
+      </div>
+    </div>
+  </template>
+
+  <!-- 정보안전 퀴즈 -->
+  <template id="tpl-quiz">
+    <div class="app-quiz">
+      <div class="quiz-header">
+        <div class="quiz-title">🛡️ 정보안전 퀴즈</div>
+        <div class="quiz-sub">디지털 세상에서 우리를 안전하게 지켜주는 8가지 질문입니다.</div>
+      </div>
+      <div class="quiz-progress">
+        <div class="quiz-progress-bar"><div class="quiz-progress-fill"></div></div>
+        <div class="quiz-progress-text">0 / 0</div>
+      </div>
+      <div class="quiz-body"></div>
+      <div class="quiz-footer">
+        <button class="btn btn-secondary" data-q-action="prev">◀ 이전</button>
+        <button class="btn btn-primary" data-q-action="next">다음 ▶</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- 학습 카드 -->
+  <template id="tpl-cards">
+    <div class="app-cards">
+      <div class="cards-header">
+        <div class="cards-title">📚 정보안전 학습 카드</div>
+        <div class="cards-sub">카드를 클릭하면 자세한 설명을 볼 수 있어요.</div>
+      </div>
+      <div class="cards-grid"></div>
+    </div>
+  </template>
+
+  <!-- 안전 체크리스트 -->
+  <template id="tpl-checklist">
+    <div class="app-checklist">
+      <div class="check-header">
+        <div class="check-title">✅ 오늘의 디지털 안전 체크리스트</div>
+        <div class="check-sub">하나씩 점검하면서 오늘의 안전 점수를 확인해보세요.</div>
+      </div>
+      <div class="check-score">
+        <div class="check-score-bar"><div class="check-score-fill"></div></div>
+        <div class="check-score-text">0% 완료</div>
+      </div>
+      <ul class="check-list"></ul>
+      <div class="check-footer">
+        <button class="btn btn-secondary" data-c-action="reset">초기화</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- 자료실 -->
+  <template id="tpl-resources">
+    <div class="app-resources">
+      <div class="res-header">
+        <div class="res-title">📁 자료실</div>
+        <div class="res-sub">정보안전과 관련된 신뢰할 수 있는 안내 자료입니다.</div>
+      </div>
+      <div class="res-list"></div>
+    </div>
+  </template>
+
+  <!-- 학교 소개 -->
+  <template id="tpl-about">
+    <div class="app-about">
+      <div class="about-hero">
+        <div class="about-logo">
+          <svg viewBox="0 0 64 64" width="64" height="64">
+            <rect x="4"  y="4"  width="26" height="26" fill="#7BB7E5"/>
+            <rect x="34" y="4"  width="26" height="26" fill="#3F8FCD"/>
+            <rect x="4"  y="34" width="26" height="26" fill="#1B6FB7"/>
+            <rect x="34" y="34" width="26" height="26" fill="#0A5AA0"/>
+          </svg>
+        </div>
+        <div>
+          <div class="about-title">서울온라인학교</div>
+          <div class="about-sub">정보안전부 · 학생 안내용 학습관</div>
+        </div>
+      </div>
+      <div class="about-body">
+        <p>이 학습관은 <strong>서울온라인학교 정보안전부</strong>에서 학생 여러분의 디지털 안전 역량을 기르기 위해 마련한 작은 공간입니다.</p>
+        <p>오른쪽 챗봇 도우미와 함께 궁금한 점을 자유롭게 물어보고, 퀴즈와 카드, 체크리스트로 디지털 시민으로서 갖추어야 할 태도를 점검해보세요.</p>
+        <h4>학습 목표</h4>
+        <ul>
+          <li>정보 사회에서 발생할 수 있는 위험 요소를 이해할 수 있다.</li>
+          <li>개인정보와 디지털 발자국을 스스로 관리할 수 있다.</li>
+          <li>디지털 도구를 안전하고 책임감 있게 활용할 수 있다.</li>
+        </ul>
+        <h4>이용 방법</h4>
+        <ul>
+          <li>바탕화면 아이콘을 <strong>더블클릭</strong>하면 앱이 열립니다.</li>
+          <li>왼쪽 아래 <strong>시작 버튼</strong>을 누르면 앱 목록과 타일이 나타납니다.</li>
+          <li>창은 <strong>드래그</strong>하여 옮길 수 있고, <strong>최소화 / 최대화 / 닫기</strong> 버튼이 있습니다.</li>
+        </ul>
+        <p class="about-foot">© 서울온라인학교 정보안전부</p>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
