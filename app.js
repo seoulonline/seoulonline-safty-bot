@@ -765,55 +765,328 @@
   }
 
   /* ============================
-     자료 폴더 (SharePoint 폴더 임베드)
+     자료 폴더 (SharePoint Graph API 탐색 + 미리보기)
   ============================= */
+
+  // 공유 URL을 Microsoft Graph API용 식별자로 인코딩
+  // u! + base64url(URL)  형식
+  function encodeShareUrl(url) {
+    try {
+      const utf8 = unescape(encodeURIComponent(url));
+      const b64 = btoa(utf8);
+      return 'u!' + b64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
+    } catch (e) {
+      return null;
+    }
+  }
+
   function initExplorer(root) {
     const cfg = window.MATERIAL_CONFIG || {};
-    const url = cfg.sharepointUrl;
+    const shareUrl = cfg.sharepointUrl;
 
-    const iframe = root.querySelector('.sp-frame');
-    const loadingEl = root.querySelector('.sp-loading');
-    const fallbackEl = root.querySelector('.sp-fallback');
-    const openLinks = root.querySelectorAll('.sp-open-link, .sp-fb-btn');
+    const openLinks = root.querySelectorAll('.sp-open-link');
+    openLinks.forEach(a => { a.href = shareUrl || '#'; });
 
-    if (!url) {
-      // URL 미설정 시 폴백 노출 + 안내
-      iframe.style.display = 'none';
-      if (loadingEl) loadingEl.classList.add('hidden');
-      const fbTitle = root.querySelector('.sp-fb-title');
-      const fbMsg = root.querySelector('.sp-fb-msg');
-      if (fbTitle) fbTitle.textContent = 'SharePoint 링크가 설정되지 않았어요';
-      if (fbMsg) fbMsg.innerHTML = '<code>자료/files.js</code>의 <code>sharepointUrl</code> 값을 확인해주세요.';
-      const fbBtn = root.querySelector('.sp-fb-btn');
-      if (fbBtn) fbBtn.style.display = 'none';
-      if (fallbackEl) fallbackEl.classList.add('show');
+    const filesHost = root.querySelector('.exp-files');
+    const countEl = root.querySelector('.exp-count');
+    const hintEl = root.querySelector('.exp-hint');
+    const addressPath = root.querySelector('.exp-address-path');
+    const refreshBtn = root.querySelector('[data-x-action="refresh"]');
+    const backBtn = root.querySelector('[data-x-action="back"]');
+    const fwdBtn = root.querySelector('[data-x-action="fwd"]');
+    const upBtn = root.querySelector('[data-x-action="up"]');
+
+    if (!shareUrl) {
+      renderError('SharePoint 링크가 설정되지 않았어요',
+        '<code>자료/files.js</code>의 <code>sharepointUrl</code> 값을 확인해주세요.');
       return;
     }
 
-    // 새 창 열기 버튼들에 URL 연결
-    openLinks.forEach(a => { a.href = url; });
+    const encodedShareId = encodeShareUrl(shareUrl);
+    if (!encodedShareId) {
+      renderError('SharePoint 링크를 처리할 수 없어요',
+        '링크 형식을 확인해주세요. 공유 → "링크 복사"로 받은 URL이어야 합니다.');
+      return;
+    }
 
-    // iframe 로드 시도
-    iframe.src = url;
+    // 상태
+    let currentPath = [];
+    let history = [[]];
+    let historyIndex = 0;
 
-    // 로드 완료 → 로딩 숨김
-    let loaded = false;
-    iframe.addEventListener('load', () => {
-      loaded = true;
-      if (loadingEl) loadingEl.classList.add('hidden');
-    }, { once: true });
+    function renderLoading() {
+      filesHost.innerHTML = `
+        <div class="exp-empty">
+          <div class="ee-ic">⏳</div>
+          <div class="ee-msg">자료를 불러오는 중...</div>
+        </div>
+      `;
+      countEl.textContent = '...';
+    }
 
-    // 너무 오래 로딩 → 폴백 노출 (iframe도 그대로 두되, 폴백 카드도 함께 보여줌)
-    // SharePoint가 X-Frame-Options로 차단하는 경우엔 load 이벤트가 즉시 발생하지만
-    // 화면이 비어 보일 수 있으므로 6초 후에 폴백 안내도 함께 표시
-    setTimeout(() => {
-      if (loadingEl) loadingEl.classList.add('hidden');
-      if (!loaded && fallbackEl) {
-        fallbackEl.classList.add('show');
+    function renderError(title, hint) {
+      filesHost.innerHTML = '';
+      const empty = el('div', { cls: 'exp-empty' });
+      empty.innerHTML = `
+        <div class="ee-ic">⚠️</div>
+        <div class="ee-msg">${title}</div>
+        <div class="ee-hint">${hint || '위의 <strong>새 창에서 열기</strong>를 누르면 SharePoint에서 바로 확인할 수 있어요.'}</div>
+      `;
+      filesHost.appendChild(empty);
+      countEl.textContent = '오류';
+    }
+
+    function renderEmpty() {
+      filesHost.innerHTML = '';
+      const empty = el('div', { cls: 'exp-empty' });
+      empty.innerHTML = `
+        <div class="ee-ic">📂</div>
+        <div class="ee-msg">${currentPath.length > 0 ? '이 폴더는 비어 있어요.' : '폴더에 자료가 아직 없어요.'}</div>
+        ${currentPath.length === 0 ? '<div class="ee-hint">선생님이 SharePoint에 파일을 올리시면 자동으로 표시됩니다.</div>' : ''}
+      `;
+      filesHost.appendChild(empty);
+      countEl.textContent = '0개 항목';
+    }
+
+    async function fetchChildren(pathArr) {
+      let url;
+      if (pathArr.length === 0) {
+        url = `https://graph.microsoft.com/v1.0/shares/${encodedShareId}/driveItem/children`;
+      } else {
+        const path = pathArr.map(encodeURIComponent).join('/');
+        url = `https://graph.microsoft.com/v1.0/shares/${encodedShareId}/driveItem:/${path}:/children`;
       }
-    }, 6000);
+      // $top=200으로 가능한 많이 한 번에 가져오기
+      const sep = url.includes('?') ? '&' : '?';
+      url = url + sep + '$top=200';
 
-    // 사용자가 명시적으로 "새 창에서 열기"를 누른 경우 폴백은 굳이 띄울 필요 없음
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) {
+        throw new Error(`Graph API ${res.status}`);
+      }
+      return await res.json();
+    }
+
+    function updateAddress() {
+      const parts = ['자료 폴더', ...currentPath];
+      addressPath.innerHTML = parts.map((p, i) => {
+        if (i === parts.length - 1) {
+          return `<span class="addr-current">${escapeHtml(p)}</span>`;
+        }
+        return `<span class="addr-crumb" data-idx="${i}">${escapeHtml(p)}</span>`;
+      }).join('<span class="addr-sep">›</span>');
+      addressPath.querySelectorAll('.addr-crumb').forEach(c => {
+        c.addEventListener('click', () => {
+          const idx = parseInt(c.dataset.idx, 10);
+          navigate(currentPath.slice(0, idx));
+        });
+      });
+    }
+
+    function updateNavButtons() {
+      backBtn.disabled = historyIndex <= 0;
+      fwdBtn.disabled = historyIndex >= history.length - 1;
+      upBtn.disabled = currentPath.length === 0;
+    }
+
+    async function navigate(newPath, pushHistory = true) {
+      currentPath = newPath.slice();
+      if (pushHistory) {
+        history = history.slice(0, historyIndex + 1);
+        history.push(newPath.slice());
+        historyIndex = history.length - 1;
+      }
+      updateAddress();
+      updateNavButtons();
+      renderLoading();
+
+      try {
+        const data = await fetchChildren(currentPath);
+        const items = (data.value || []).slice().sort((a, b) => {
+          const af = !!a.folder, bf = !!b.folder;
+          if (af !== bf) return af ? -1 : 1;
+          return a.name.localeCompare(b.name, 'ko');
+        });
+
+        if (items.length === 0) {
+          renderEmpty();
+          return;
+        }
+
+        filesHost.innerHTML = '';
+        items.forEach(item => {
+          if (item.folder) renderFolderItem(item);
+          else renderFileItem(item);
+        });
+
+        const folderCount = items.filter(i => i.folder).length;
+        const fileCount = items.length - folderCount;
+        countEl.textContent = (folderCount && fileCount)
+          ? `${items.length}개 항목 (폴더 ${folderCount}, 파일 ${fileCount})`
+          : `${items.length}개 항목`;
+      } catch (e) {
+        renderError(`자료를 불러오지 못했어요 (${e.message})`);
+      }
+    }
+
+    function renderFolderItem(item) {
+      const node = el('div', { cls: 'exp-file exp-folder', attrs: { tabindex: '0' } });
+      node.innerHTML = `
+        <div class="exp-folder-thumb">
+          <div class="exp-folder-glyph">📁</div>
+        </div>
+        <div class="exp-file-name">${escapeHtml(item.name)}</div>
+      `;
+      let lastClick = 0;
+      const enter = () => navigate([...currentPath, item.name]);
+      node.addEventListener('click', () => {
+        $$('.exp-file', filesHost).forEach(n => n.classList.remove('selected'));
+        node.classList.add('selected');
+        const now = Date.now();
+        if (now - lastClick < 380) enter();
+        lastClick = now;
+      });
+      node.addEventListener('dblclick', enter);
+      node.addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
+      filesHost.appendChild(node);
+    }
+
+    function renderFileItem(item) {
+      const ext = fileTypeFromName(item.name);
+      const node = el('div', { cls: 'exp-file', attrs: { tabindex: '0' } });
+      node.innerHTML = `
+        <div class="exp-file-thumb ${fileBadgeClass(ext)}">
+          <div class="exp-file-thumb-glyph">${fileGlyph(ext)}</div>
+          <div class="exp-file-thumb-badge">${fileBadgeLabel(ext)}</div>
+        </div>
+        <div class="exp-file-name">${escapeHtml(item.name)}</div>
+      `;
+      let lastClick = 0;
+      const open = () => openSharePointFileViewer(item);
+      node.addEventListener('click', () => {
+        $$('.exp-file', filesHost).forEach(n => n.classList.remove('selected'));
+        node.classList.add('selected');
+        const now = Date.now();
+        if (now - lastClick < 380) open();
+        lastClick = now;
+      });
+      node.addEventListener('dblclick', open);
+      node.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); });
+      filesHost.appendChild(node);
+    }
+
+    // 버튼 이벤트
+    backBtn.addEventListener('click', () => {
+      if (historyIndex > 0) {
+        historyIndex--;
+        navigate(history[historyIndex], false);
+      }
+    });
+    fwdBtn.addEventListener('click', () => {
+      if (historyIndex < history.length - 1) {
+        historyIndex++;
+        navigate(history[historyIndex], false);
+      }
+    });
+    upBtn.addEventListener('click', () => {
+      if (currentPath.length > 0) navigate(currentPath.slice(0, -1));
+    });
+    refreshBtn.addEventListener('click', () => navigate(currentPath, false));
+
+    if (hintEl) hintEl.textContent = '폴더는 더블클릭, 파일은 클릭해서 미리보기로 보세요.';
+    navigate([], false);
+  }
+
+  // HTML 이스케이프 (파일/폴더명에 따옴표, < 등이 있을 수 있음)
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  // SharePoint 파일을 뷰어 창에서 미리보기로 열기
+  function openSharePointFileViewer(item) {
+    const ext = fileTypeFromName(item.name);
+    const id = `viewer-sp-${(item.id || '').replace(/[^\w]/g, '')}_${(item.name || '').replace(/[^\w가-힣]/g, '').slice(0, 30)}`;
+    const downloadUrl = item['@microsoft.graph.downloadUrl'];
+    const webUrl = item.webUrl;
+    const directUrl = downloadUrl || webUrl;
+
+    openApp(id, {
+      meta: {
+        id,
+        title: item.name,
+        icon: fileGlyph(ext),
+        size: { w: 960, h: 660 },
+      },
+      template: 'viewer',
+      populate: (body) => {
+        const tpl = $('#tpl-viewer');
+        body.appendChild(tpl.content.cloneNode(true));
+
+        body.querySelector('.viewer-icon').textContent = fileGlyph(ext);
+        body.querySelector('.viewer-name').textContent = item.name;
+        const dlEl = body.querySelector('.viewer-dl');
+        if (downloadUrl) {
+          dlEl.href = downloadUrl;
+          dlEl.setAttribute('download', item.name);
+        } else if (webUrl) {
+          dlEl.href = webUrl;
+          dlEl.removeAttribute('download');
+          dlEl.target = '_blank';
+        }
+
+        const host = body.querySelector('.viewer-host');
+        if (!directUrl) {
+          host.innerHTML = `
+            <div class="viewer-fallback">
+              <div class="vf-ic">⚠️</div>
+              <div class="vf-title">파일 URL을 가져올 수 없어요</div>
+              <div class="vf-msg">SharePoint에서 직접 열어주세요.</div>
+            </div>
+          `;
+          return;
+        }
+
+        if (ext === 'pdf') {
+          // PDF는 직접 임베드 (대부분 브라우저 내장 PDF 뷰어로 렌더)
+          const iframe = el('iframe', {
+            attrs: { src: downloadUrl || webUrl, title: item.name }
+          });
+          host.appendChild(iframe);
+        } else if (['pptx','ppt','docx','doc','xlsx','xls'].includes(ext)) {
+          // Office Online viewer (downloadUrl이 공개 접근 가능 → 가장 안정적)
+          const src = encodeURIComponent(downloadUrl || webUrl);
+          const iframe = el('iframe', {
+            attrs: { src: `https://view.officeapps.live.com/op/embed.aspx?src=${src}`, title: item.name }
+          });
+          host.appendChild(iframe);
+        } else if (['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext)) {
+          host.style.display = 'flex';
+          host.style.alignItems = 'center';
+          host.style.justifyContent = 'center';
+          host.style.background = '#2a2a2a';
+          const img = el('img', {
+            attrs: { src: downloadUrl || webUrl, alt: item.name, style: 'max-width:100%; max-height:100%;' }
+          });
+          host.appendChild(img);
+        } else if (['mp4','webm','mov'].includes(ext)) {
+          const video = el('video', {
+            attrs: { src: downloadUrl || webUrl, controls: '', style: 'width:100%; height:100%; background:#000;' }
+          });
+          host.appendChild(video);
+        } else {
+          host.innerHTML = `
+            <div class="viewer-fallback">
+              <div class="vf-ic">📄</div>
+              <div class="vf-title">이 형식은 미리보기를 지원하지 않아요</div>
+              <div class="vf-msg">파일을 다운로드해서 열어보세요.</div>
+              <a href="${escapeHtml(downloadUrl || webUrl)}" download="${escapeHtml(item.name)}">파일 다운로드</a>
+            </div>
+          `;
+        }
+      }
+    });
   }
 
   // (사용하지 않음 - 이전 GitHub API 기반 자료 탐색기. 참고용으로 유지)
@@ -1237,11 +1510,13 @@
     const overlay = root.querySelector('.game-overlay');
 
     const TILE = 32;
-    const GRAVITY = 0.55;
-    const JUMP_V = -10.5;
-    const MOVE_SPEED = 3.4;
-    const FRICTION = 0.82;
+    const GRAVITY = 0.45;       // 0.55 → 0.45 : 더 가볍게 떨어져서 공중에 더 오래 머무름
+    const JUMP_V = -12;         // -10.5 → -12 : 점프력 강화 (약 1.4 타일 더 높이 점프)
+    const MOVE_SPEED = 3.8;     // 3.4 → 3.8 : 조금 더 빠르게 이동
+    const FRICTION = 0.85;      // 0.82 → 0.85 : 살짝 더 정밀한 조작
     const MAX_FALL = 12;
+    const COYOTE_FRAMES = 6;    // 발판에서 떨어진 직후 짧은 시간 점프 가능 (관용 점프)
+    const JUMP_BUFFER = 6;      // 착지 직전 점프 누르면 착지하자마자 점프
 
     // 레벨 정의: tile 좌표 기준
     // 바닥(11), 점프 발판 몇 개, ?블록 3개, 코인, 적, 깃발
@@ -1251,41 +1526,47 @@
       playerStart: { x: 2, y: 9 },
       platforms: [
         { x: 0,  y: 11, w: 18, h: 1 },
-        { x: 20, y: 11, w: 12, h: 1 },  // (사이에 구덩이)
+        { x: 20, y: 11, w: 12, h: 1 },
         { x: 34, y: 11, w: 16, h: 1 },
-        { x: 52, y: 11, w: 26, h: 1 },  // 마지막 구간
-        { x: 6,  y: 8,  w: 3,  h: 1 },
-        { x: 13, y: 6,  w: 3,  h: 1 },
-        { x: 22, y: 8,  w: 3,  h: 1 },
-        { x: 28, y: 6,  w: 3,  h: 1 },
-        { x: 38, y: 8,  w: 2,  h: 1 },
-        { x: 44, y: 6,  w: 3,  h: 1 },
-        { x: 56, y: 8,  w: 3,  h: 1 },
-        { x: 62, y: 6,  w: 4,  h: 1 },
-        { x: 70, y: 8,  w: 3,  h: 1 },
+        { x: 52, y: 11, w: 26, h: 1 },
+        // 첫 발판: 시작 지점과 더 가깝고(2→4), 더 넓게(3→5타일)
+        { x: 4,  y: 9,  w: 5,  h: 1 },
+        // 두 번째 발판: 천천히 올라가는 계단식
+        { x: 11, y: 7,  w: 4,  h: 1 },
+        { x: 17, y: 8,  w: 1,  h: 1 },   // 디딤돌 (구덩이 직전)
+        { x: 22, y: 9,  w: 4,  h: 1 },
+        { x: 28, y: 7,  w: 4,  h: 1 },
+        { x: 38, y: 9,  w: 3,  h: 1 },
+        { x: 44, y: 7,  w: 4,  h: 1 },
+        { x: 56, y: 9,  w: 4,  h: 1 },
+        { x: 62, y: 7,  w: 5,  h: 1 },
+        { x: 70, y: 9,  w: 4,  h: 1 },
       ],
       blocks: [
-        { x: 7,  y: 6 },
-        { x: 23, y: 6 },
-        { x: 45, y: 4 },
-        { x: 63, y: 4 },
+        // 첫 블록은 첫 발판 옆에 낮게 두어서 그냥 점프만 해도 닿음
+        { x: 7,  y: 7 },
+        { x: 23, y: 7 },
+        { x: 45, y: 5 },
+        { x: 63, y: 5 },
       ],
       coins: [
-        { x: 4, y: 10 }, { x: 5, y: 10 },
-        { x: 7, y: 7 }, { x: 14, y: 5 }, { x: 15, y: 5 },
-        { x: 22, y: 7 }, { x: 24, y: 7 },
-        { x: 29, y: 5 }, { x: 30, y: 5 },
-        { x: 38, y: 7 }, { x: 39, y: 7 },
-        { x: 45, y: 5 }, { x: 56, y: 7 }, { x: 57, y: 7 }, { x: 58, y: 7 },
-        { x: 63, y: 5 }, { x: 64, y: 5 }, { x: 65, y: 5 },
-        { x: 70, y: 7 }, { x: 71, y: 7 },
+        { x: 4, y: 10 }, { x: 5, y: 10 }, { x: 6, y: 10 },
+        { x: 5, y: 8 }, { x: 6, y: 8 }, { x: 7, y: 8 },
+        { x: 12, y: 6 }, { x: 13, y: 6 }, { x: 14, y: 6 },
+        { x: 22, y: 8 }, { x: 24, y: 8 },
+        { x: 29, y: 6 }, { x: 30, y: 6 },
+        { x: 38, y: 8 }, { x: 39, y: 8 },
+        { x: 45, y: 6 }, { x: 56, y: 8 }, { x: 57, y: 8 }, { x: 58, y: 8 },
+        { x: 63, y: 6 }, { x: 64, y: 6 }, { x: 65, y: 6 },
+        { x: 70, y: 8 }, { x: 71, y: 8 },
       ],
       enemies: [
-        { range: [10, 17], y: 10, vx: -0.8 },
-        { range: [25, 31], y: 10, vx: -0.9 },
-        { range: [40, 49], y: 10, vx: -1.0 },
-        { range: [58, 65], y: 10, vx: -0.9 },
-        { range: [70, 76], y: 10, vx: -1.1 },
+        // 적 속도 전체적으로 완화
+        { range: [11, 17], y: 10, vx: -0.55 },
+        { range: [25, 31], y: 10, vx: -0.6 },
+        { range: [40, 49], y: 10, vx: -0.7 },
+        { range: [58, 65], y: 10, vx: -0.65 },
+        { range: [70, 76], y: 10, vx: -0.75 },
       ],
       goal: { x: 77, y: 10 },
     };
@@ -1306,6 +1587,10 @@
     let bestScore = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0;
     let tickCount = 0;
     let askedBlocks = new Set();
+    // 점프 보조 (관용 점프)
+    let coyoteTimer = 0;       // 발판에서 막 떨어진 직후 점프 허용
+    let jumpBuffer = 0;        // 착지 직전 점프 키 누른 것 기억
+    let prevJumpKey = false;   // 점프 키 에지 감지용
 
     function resetLevel() {
       level = JSON.parse(JSON.stringify(baseLevel));
@@ -1328,6 +1613,9 @@
       coinCount = 0;
       phase = 'playing';
       askedBlocks = new Set();
+      coyoteTimer = 0;
+      jumpBuffer = 0;
+      prevJumpKey = false;
       overlay.classList.remove('show');
       overlay.innerHTML = '';
       updateHUD();
@@ -1366,9 +1654,27 @@
       else if (keys.right) { player.vx =  MOVE_SPEED; player.facing =  1; }
       else { player.vx *= FRICTION; if (Math.abs(player.vx) < 0.05) player.vx = 0; }
 
-      if (keys.jump && player.onGround) {
+      // 점프 보조 처리
+      const jumpJustPressed = keys.jump && !prevJumpKey;
+      prevJumpKey = keys.jump;
+
+      if (jumpJustPressed) jumpBuffer = JUMP_BUFFER;
+      if (jumpBuffer > 0) jumpBuffer--;
+
+      if (player.onGround) coyoteTimer = COYOTE_FRAMES;
+      else if (coyoteTimer > 0) coyoteTimer--;
+
+      // 코요테 시간 안 + 점프 버퍼 안이라면 점프 발동
+      if (jumpBuffer > 0 && coyoteTimer > 0) {
         player.vy = JUMP_V;
         player.onGround = false;
+        jumpBuffer = 0;
+        coyoteTimer = 0;
+      }
+
+      // 가변 점프 높이: 점프 키 떼면 상승 약화 (마리오식 점프)
+      if (!keys.jump && player.vy < 0) {
+        player.vy *= 0.65;
       }
 
       player.vy += GRAVITY;

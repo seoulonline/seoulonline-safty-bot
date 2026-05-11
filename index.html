@@ -194,38 +194,33 @@
     </div>
   </template>
 
-  <!-- 자료 폴더 (학교 SharePoint 폴더 연결) -->
+  <!-- 자료 폴더 (SharePoint Graph API 기반 탐색기 + 미리보기) -->
   <template id="tpl-resources">
-    <div class="app-sharepoint">
+    <div class="app-explorer app-sharepoint-mode">
       <div class="sp-banner">
         <div class="sp-folder-icon">📁</div>
         <div class="sp-banner-info">
           <div class="sp-banner-title">학생 안내용 자료</div>
-          <div class="sp-banner-sub">서울온라인학교 SharePoint · 공유 폴더</div>
+          <div class="sp-banner-sub">서울온라인학교 SharePoint</div>
         </div>
         <a class="sp-open-link" target="_blank" rel="noopener">새 창에서 열기 ↗</a>
       </div>
-      <div class="sp-frame-host">
-        <div class="sp-loading">
-          <div class="sp-loading-spinner"></div>
-          <div>자료 폴더를 불러오는 중...</div>
+      <div class="exp-toolbar">
+        <button class="exp-nav-btn" data-x-action="back" title="뒤로" disabled>◀</button>
+        <button class="exp-nav-btn" data-x-action="fwd"  title="앞으로" disabled>▶</button>
+        <button class="exp-nav-btn" data-x-action="up"   title="위로" disabled>▲</button>
+        <div class="exp-address">
+          <span class="exp-address-icon">📁</span>
+          <span class="exp-address-path">자료 폴더</span>
         </div>
-        <iframe class="sp-frame" title="SharePoint 자료 폴더" allowfullscreen></iframe>
-        <div class="sp-fallback">
-          <div class="sp-fb-card">
-            <div class="sp-fb-icon">📂</div>
-            <div class="sp-fb-title">자료 폴더가 안 보이시나요?</div>
-            <div class="sp-fb-msg">
-              일부 환경에서는 SharePoint 폴더가 학습관 안에서<br/>
-              바로 표시되지 않을 수 있어요. 아래 버튼으로 열어주세요.
-            </div>
-            <a class="sp-fb-btn" target="_blank" rel="noopener">SharePoint 폴더 열기</a>
-            <div class="sp-fb-hint">학교 계정 로그인이 필요할 수 있어요.</div>
-          </div>
-        </div>
+        <button class="exp-nav-btn" data-x-action="refresh" title="새로 고침">⟳</button>
       </div>
-      <div class="sp-footer-bar">
-        💡 자료는 학교 SharePoint에 보관되어 있어요. 선생님이 SharePoint에 자료를 추가하시면 즉시 학생들에게도 보입니다.
+      <div class="exp-body">
+        <div class="exp-files"></div>
+      </div>
+      <div class="exp-status">
+        <span class="exp-count">0개 항목</span>
+        <span class="exp-hint">파일을 클릭하면 미리보기 창이 열려요</span>
       </div>
     </div>
   </template>
