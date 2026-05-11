@@ -168,6 +168,18 @@
      창 관리
   ========================================================== */
   function openApp(id, options) {
+    // 자료 폴더 → 학교 SharePoint 공유 폴더를 새 탭으로 직접 연결
+    // (학교 SharePoint는 보안 정책상 임베드가 불가하므로 새 창이 가장 자연스러움)
+    if (id === 'resources' && !options) {
+      const cfg = window.MATERIAL_CONFIG || {};
+      const url = cfg.sharepointFolderUrl || cfg.sharepointUrl;
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      // URL이 설정돼 있지 않으면 안내용 내부 창으로 폴백
+    }
+
     if (state.windows[id]) {
       // 이미 열림 → 활성화 + 최소화 해제
       const w = state.windows[id];
@@ -765,204 +777,116 @@
   }
 
   /* ============================
-     자료 폴더 (SharePoint Graph API 탐색 + 미리보기)
+     자료 폴더 (큐레이션 + Office Online 미리보기)
   ============================= */
 
-  // 공유 URL을 Microsoft Graph API용 식별자로 인코딩
-  // u! + base64url(URL)  형식
-  function encodeShareUrl(url) {
-    try {
-      const utf8 = unescape(encodeURIComponent(url));
-      const b64 = btoa(utf8);
-      return 'u!' + b64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
-    } catch (e) {
-      return null;
-    }
+  // HTML 이스케이프
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
   }
 
   function initExplorer(root) {
     const cfg = window.MATERIAL_CONFIG || {};
-    const shareUrl = cfg.sharepointUrl;
+    const folderUrl = cfg.sharepointFolderUrl || cfg.sharepointUrl;
+    const categories = Array.isArray(cfg.categories) ? cfg.categories : [];
 
     const openLinks = root.querySelectorAll('.sp-open-link');
-    openLinks.forEach(a => { a.href = shareUrl || '#'; });
+    openLinks.forEach(a => { a.href = folderUrl || '#'; });
 
     const filesHost = root.querySelector('.exp-files');
     const countEl = root.querySelector('.exp-count');
     const hintEl = root.querySelector('.exp-hint');
-    const addressPath = root.querySelector('.exp-address-path');
-    const refreshBtn = root.querySelector('[data-x-action="refresh"]');
-    const backBtn = root.querySelector('[data-x-action="back"]');
-    const fwdBtn = root.querySelector('[data-x-action="fwd"]');
-    const upBtn = root.querySelector('[data-x-action="up"]');
 
-    if (!shareUrl) {
-      renderError('SharePoint 링크가 설정되지 않았어요',
-        '<code>자료/files.js</code>의 <code>sharepointUrl</code> 값을 확인해주세요.');
-      return;
-    }
+    const curated = (window.MATERIAL_FILES || []).filter(f => f && f.name && f.shareUrl);
 
-    const encodedShareId = encodeShareUrl(shareUrl);
-    if (!encodedShareId) {
-      renderError('SharePoint 링크를 처리할 수 없어요',
-        '링크 형식을 확인해주세요. 공유 → "링크 복사"로 받은 URL이어야 합니다.');
-      return;
-    }
+    render();
 
-    // 상태
-    let currentPath = [];
-    let history = [[]];
-    let historyIndex = 0;
-
-    function renderLoading() {
-      filesHost.innerHTML = `
-        <div class="exp-empty">
-          <div class="ee-ic">⏳</div>
-          <div class="ee-msg">자료를 불러오는 중...</div>
-        </div>
-      `;
-      countEl.textContent = '...';
-    }
-
-    function renderError(title, hint) {
+    function render() {
       filesHost.innerHTML = '';
-      const empty = el('div', { cls: 'exp-empty' });
-      empty.innerHTML = `
-        <div class="ee-ic">⚠️</div>
-        <div class="ee-msg">${title}</div>
-        <div class="ee-hint">${hint || '위의 <strong>새 창에서 열기</strong>를 누르면 SharePoint에서 바로 확인할 수 있어요.'}</div>
-      `;
-      filesHost.appendChild(empty);
-      countEl.textContent = '오류';
-    }
 
-    function renderEmpty() {
-      filesHost.innerHTML = '';
-      const empty = el('div', { cls: 'exp-empty' });
-      empty.innerHTML = `
-        <div class="ee-ic">📂</div>
-        <div class="ee-msg">${currentPath.length > 0 ? '이 폴더는 비어 있어요.' : '폴더에 자료가 아직 없어요.'}</div>
-        ${currentPath.length === 0 ? '<div class="ee-hint">선생님이 SharePoint에 파일을 올리시면 자동으로 표시됩니다.</div>' : ''}
-      `;
-      filesHost.appendChild(empty);
-      countEl.textContent = '0개 항목';
-    }
-
-    async function fetchChildren(pathArr) {
-      let url;
-      if (pathArr.length === 0) {
-        url = `https://graph.microsoft.com/v1.0/shares/${encodedShareId}/driveItem/children`;
-      } else {
-        const path = pathArr.map(encodeURIComponent).join('/');
-        url = `https://graph.microsoft.com/v1.0/shares/${encodedShareId}/driveItem:/${path}:/children`;
-      }
-      // $top=200으로 가능한 많이 한 번에 가져오기
-      const sep = url.includes('?') ? '&' : '?';
-      url = url + sep + '$top=200';
-
-      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-      if (!res.ok) {
-        throw new Error(`Graph API ${res.status}`);
-      }
-      return await res.json();
-    }
-
-    function updateAddress() {
-      const parts = ['자료 폴더', ...currentPath];
-      addressPath.innerHTML = parts.map((p, i) => {
-        if (i === parts.length - 1) {
-          return `<span class="addr-current">${escapeHtml(p)}</span>`;
-        }
-        return `<span class="addr-crumb" data-idx="${i}">${escapeHtml(p)}</span>`;
-      }).join('<span class="addr-sep">›</span>');
-      addressPath.querySelectorAll('.addr-crumb').forEach(c => {
-        c.addEventListener('click', () => {
-          const idx = parseInt(c.dataset.idx, 10);
-          navigate(currentPath.slice(0, idx));
-        });
-      });
-    }
-
-    function updateNavButtons() {
-      backBtn.disabled = historyIndex <= 0;
-      fwdBtn.disabled = historyIndex >= history.length - 1;
-      upBtn.disabled = currentPath.length === 0;
-    }
-
-    async function navigate(newPath, pushHistory = true) {
-      currentPath = newPath.slice();
-      if (pushHistory) {
-        history = history.slice(0, historyIndex + 1);
-        history.push(newPath.slice());
-        historyIndex = history.length - 1;
-      }
-      updateAddress();
-      updateNavButtons();
-      renderLoading();
-
-      try {
-        const data = await fetchChildren(currentPath);
-        const items = (data.value || []).slice().sort((a, b) => {
-          const af = !!a.folder, bf = !!b.folder;
-          if (af !== bf) return af ? -1 : 1;
-          return a.name.localeCompare(b.name, 'ko');
-        });
-
-        if (items.length === 0) {
-          renderEmpty();
-          return;
-        }
-
-        filesHost.innerHTML = '';
-        items.forEach(item => {
-          if (item.folder) renderFolderItem(item);
-          else renderFileItem(item);
-        });
-
-        const folderCount = items.filter(i => i.folder).length;
-        const fileCount = items.length - folderCount;
-        countEl.textContent = (folderCount && fileCount)
-          ? `${items.length}개 항목 (폴더 ${folderCount}, 파일 ${fileCount})`
-          : `${items.length}개 항목`;
-      } catch (e) {
-        renderError(`자료를 불러오지 못했어요 (${e.message})`);
-      }
-    }
-
-    function renderFolderItem(item) {
-      const node = el('div', { cls: 'exp-file exp-folder', attrs: { tabindex: '0' } });
-      node.innerHTML = `
-        <div class="exp-folder-thumb">
-          <div class="exp-folder-glyph">📁</div>
+      // 1. 안내 카드 + 메인 SharePoint 진입 버튼
+      const hero = el('div', { cls: 'sp-landing' });
+      hero.innerHTML = `
+        <div class="sp-landing-icon">📂</div>
+        <div class="sp-landing-title">학생 안내용 자료</div>
+        <div class="sp-landing-msg">
+          자료는 학교 SharePoint에 분류별로 정리되어 있어요.<br/>
+          버튼을 누르면 새 창에서 자유롭게 둘러보고 미리보기할 수 있어요.
         </div>
-        <div class="exp-file-name">${escapeHtml(item.name)}</div>
+        <a class="sp-landing-btn" href="${escapeHtml(folderUrl || '#')}" target="_blank" rel="noopener">
+          📂 SharePoint 자료 폴더 전체 보기
+        </a>
       `;
-      let lastClick = 0;
-      const enter = () => navigate([...currentPath, item.name]);
-      node.addEventListener('click', () => {
-        $$('.exp-file', filesHost).forEach(n => n.classList.remove('selected'));
-        node.classList.add('selected');
-        const now = Date.now();
-        if (now - lastClick < 380) enter();
-        lastClick = now;
-      });
-      node.addEventListener('dblclick', enter);
-      node.addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); });
-      filesHost.appendChild(node);
+      filesHost.appendChild(hero);
+
+      // 2. 카테고리 카드 (있는 경우)
+      if (categories.length > 0) {
+        const section = el('div', { cls: 'sp-cats' });
+        section.innerHTML = `<div class="sp-cats-title">📁 주제별 자료실</div>`;
+        const grid = el('div', { cls: 'sp-cats-grid' });
+        categories.forEach((c, i) => {
+          if (!c || !c.name) return;
+          const url = c.shareUrl || folderUrl || '#';
+          const colorClass = `c-${(i % 6) + 1}`;
+          const link = el('a', {
+            cls: `sp-cat ${colorClass}`,
+            attrs: { href: url, target: '_blank', rel: 'noopener' }
+          });
+          link.innerHTML = `
+            <div class="sp-cat-ic">${c.icon || '📁'}</div>
+            <div class="sp-cat-meta">
+              <div class="sp-cat-name">${escapeHtml(c.name)}</div>
+              ${c.description ? `<div class="sp-cat-desc">${escapeHtml(c.description)}</div>` : ''}
+            </div>
+            <div class="sp-cat-arrow">↗</div>
+          `;
+          grid.appendChild(link);
+        });
+        section.appendChild(grid);
+        filesHost.appendChild(section);
+      }
+
+      // 3. 추천 자료 (학습관 안에서 미리보기) - 큐레이션된 게 있을 때만
+      if (curated.length > 0) {
+        const featSection = el('div', { cls: 'sp-featured' });
+        featSection.innerHTML = `
+          <div class="sp-featured-title">⭐ 학습관에서 바로 보기</div>
+          <div class="sp-featured-sub">선생님이 골라둔 자료를 바로 미리보기로 열 수 있어요.</div>
+        `;
+        const fgrid = el('div', { cls: 'sp-featured-grid' });
+        curated.forEach(f => fgrid.appendChild(buildFileNode(f)));
+        featSection.appendChild(fgrid);
+        filesHost.appendChild(featSection);
+      }
+
+      if (countEl) {
+        countEl.textContent = curated.length > 0
+          ? `${curated.length}개 추천 자료 · 미리보기 가능`
+          : '학교 SharePoint와 연결됨';
+      }
+      if (hintEl) {
+        hintEl.textContent = curated.length > 0
+          ? '추천 자료는 클릭, 그 외 자료는 SharePoint 폴더에서 보세요'
+          : '버튼을 누르면 SharePoint에서 자료를 볼 수 있어요';
+      }
     }
 
-    function renderFileItem(item) {
-      const ext = fileTypeFromName(item.name);
+    function buildFileNode(file) {
+      const ext = (file.type || fileTypeFromName(file.name)).toLowerCase();
+      const display = file.displayName || file.name;
       const node = el('div', { cls: 'exp-file', attrs: { tabindex: '0' } });
       node.innerHTML = `
         <div class="exp-file-thumb ${fileBadgeClass(ext)}">
           <div class="exp-file-thumb-glyph">${fileGlyph(ext)}</div>
           <div class="exp-file-thumb-badge">${fileBadgeLabel(ext)}</div>
         </div>
-        <div class="exp-file-name">${escapeHtml(item.name)}</div>
+        <div class="exp-file-name">${escapeHtml(display)}</div>
+        ${file.description ? `<div class="exp-file-desc">${escapeHtml(file.description)}</div>` : ''}
       `;
       let lastClick = 0;
-      const open = () => openSharePointFileViewer(item);
+      const open = () => openSharePointFileViewer(file);
       node.addEventListener('click', () => {
         $$('.exp-file', filesHost).forEach(n => n.classList.remove('selected'));
         node.classList.add('selected');
@@ -972,116 +896,54 @@
       });
       node.addEventListener('dblclick', open);
       node.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); });
-      filesHost.appendChild(node);
+      return node;
     }
-
-    // 버튼 이벤트
-    backBtn.addEventListener('click', () => {
-      if (historyIndex > 0) {
-        historyIndex--;
-        navigate(history[historyIndex], false);
-      }
-    });
-    fwdBtn.addEventListener('click', () => {
-      if (historyIndex < history.length - 1) {
-        historyIndex++;
-        navigate(history[historyIndex], false);
-      }
-    });
-    upBtn.addEventListener('click', () => {
-      if (currentPath.length > 0) navigate(currentPath.slice(0, -1));
-    });
-    refreshBtn.addEventListener('click', () => navigate(currentPath, false));
-
-    if (hintEl) hintEl.textContent = '폴더는 더블클릭, 파일은 클릭해서 미리보기로 보세요.';
-    navigate([], false);
   }
 
-  // HTML 이스케이프 (파일/폴더명에 따옴표, < 등이 있을 수 있음)
-  function escapeHtml(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
+  // SharePoint 추천 자료를 Office Online viewer로 미리보기
+  function openSharePointFileViewer(file) {
+    const ext = (file.type || fileTypeFromName(file.name)).toLowerCase();
+    const display = file.displayName || file.name;
+    const id = `viewer-${(file.name || '').replace(/[^\w가-힣]/g, '').slice(0, 40)}`;
+    const shareUrl = file.shareUrl;
 
-  // SharePoint 파일을 뷰어 창에서 미리보기로 열기
-  function openSharePointFileViewer(item) {
-    const ext = fileTypeFromName(item.name);
-    const id = `viewer-sp-${(item.id || '').replace(/[^\w]/g, '')}_${(item.name || '').replace(/[^\w가-힣]/g, '').slice(0, 30)}`;
-    const downloadUrl = item['@microsoft.graph.downloadUrl'];
-    const webUrl = item.webUrl;
-    const directUrl = downloadUrl || webUrl;
+    if (!shareUrl) return;
 
     openApp(id, {
-      meta: {
-        id,
-        title: item.name,
-        icon: fileGlyph(ext),
-        size: { w: 960, h: 660 },
-      },
+      meta: { id, title: display, icon: fileGlyph(ext), size: { w: 960, h: 660 } },
       template: 'viewer',
       populate: (body) => {
         const tpl = $('#tpl-viewer');
         body.appendChild(tpl.content.cloneNode(true));
 
         body.querySelector('.viewer-icon').textContent = fileGlyph(ext);
-        body.querySelector('.viewer-name').textContent = item.name;
+        body.querySelector('.viewer-name').textContent = display;
         const dlEl = body.querySelector('.viewer-dl');
-        if (downloadUrl) {
-          dlEl.href = downloadUrl;
-          dlEl.setAttribute('download', item.name);
-        } else if (webUrl) {
-          dlEl.href = webUrl;
-          dlEl.removeAttribute('download');
-          dlEl.target = '_blank';
-        }
+        // SharePoint 공유 링크는 새 창 열기/다운로드 모두 같은 URL로 동작
+        dlEl.href = shareUrl;
+        dlEl.target = '_blank';
+        dlEl.removeAttribute('download');
+        dlEl.textContent = '↗ SharePoint에서 열기';
 
         const host = body.querySelector('.viewer-host');
-        if (!directUrl) {
-          host.innerHTML = `
-            <div class="viewer-fallback">
-              <div class="vf-ic">⚠️</div>
-              <div class="vf-title">파일 URL을 가져올 수 없어요</div>
-              <div class="vf-msg">SharePoint에서 직접 열어주세요.</div>
-            </div>
-          `;
-          return;
-        }
 
-        if (ext === 'pdf') {
-          // PDF는 직접 임베드 (대부분 브라우저 내장 PDF 뷰어로 렌더)
+        // 미리보기 전략:
+        //  · PDF · Office 문서  → Microsoft Office Online viewer
+        //  · 이미지/동영상       → 직접 임베드 (가능한 경우)
+        //  · 그 외               → 안내 + 새 창 열기
+        if (['pdf','pptx','ppt','docx','doc','xlsx','xls'].includes(ext)) {
+          const src = encodeURIComponent(shareUrl);
           const iframe = el('iframe', {
-            attrs: { src: downloadUrl || webUrl, title: item.name }
+            attrs: { src: `https://view.officeapps.live.com/op/embed.aspx?src=${src}`, title: display }
           });
           host.appendChild(iframe);
-        } else if (['pptx','ppt','docx','doc','xlsx','xls'].includes(ext)) {
-          // Office Online viewer (downloadUrl이 공개 접근 가능 → 가장 안정적)
-          const src = encodeURIComponent(downloadUrl || webUrl);
-          const iframe = el('iframe', {
-            attrs: { src: `https://view.officeapps.live.com/op/embed.aspx?src=${src}`, title: item.name }
-          });
-          host.appendChild(iframe);
-        } else if (['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext)) {
-          host.style.display = 'flex';
-          host.style.alignItems = 'center';
-          host.style.justifyContent = 'center';
-          host.style.background = '#2a2a2a';
-          const img = el('img', {
-            attrs: { src: downloadUrl || webUrl, alt: item.name, style: 'max-width:100%; max-height:100%;' }
-          });
-          host.appendChild(img);
-        } else if (['mp4','webm','mov'].includes(ext)) {
-          const video = el('video', {
-            attrs: { src: downloadUrl || webUrl, controls: '', style: 'width:100%; height:100%; background:#000;' }
-          });
-          host.appendChild(video);
         } else {
           host.innerHTML = `
             <div class="viewer-fallback">
               <div class="vf-ic">📄</div>
-              <div class="vf-title">이 형식은 미리보기를 지원하지 않아요</div>
-              <div class="vf-msg">파일을 다운로드해서 열어보세요.</div>
-              <a href="${escapeHtml(downloadUrl || webUrl)}" download="${escapeHtml(item.name)}">파일 다운로드</a>
+              <div class="vf-title">이 형식은 학습관 안에서 미리보기를 지원하지 않아요</div>
+              <div class="vf-msg">아래 버튼을 누르면 SharePoint에서 바로 열립니다.</div>
+              <a href="${escapeHtml(shareUrl)}" target="_blank" rel="noopener">SharePoint에서 열기</a>
             </div>
           `;
         }

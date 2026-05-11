@@ -1092,6 +1092,162 @@ img { display: block; }
 }
 
 /* ==========================================================
+   자료 폴더: 랜딩 카드 & 카테고리 그룹
+========================================================== */
+.sp-landing {
+  max-width: 520px;
+  margin: 40px auto;
+  text-align: center;
+  padding: 32px 28px;
+  background: linear-gradient(135deg, #eef4fb 0%, #dbe9f7 100%);
+  border-radius: 8px;
+  border: 1px solid #c7daed;
+  box-shadow: 0 6px 22px rgba(10, 60, 120, 0.08);
+}
+.sp-landing-icon { font-size: 64px; line-height: 1; margin-bottom: 8px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.1)); }
+.sp-landing-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent-dark);
+  margin-bottom: 10px;
+}
+.sp-landing-msg {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #2b2b2b;
+  margin-bottom: 22px;
+}
+.sp-landing-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background .12s, transform .12s;
+  box-shadow: 0 3px 10px rgba(0, 120, 215, .25);
+}
+.sp-landing-btn:hover { background: var(--accent-light); transform: translateY(-1px); }
+.sp-landing-hint {
+  margin-top: 20px;
+  font-size: 11px;
+  color: #5a6577;
+  line-height: 1.6;
+  padding-top: 16px;
+  border-top: 1px dashed #b7cbe1;
+}
+.sp-landing-hint code {
+  background: rgba(255,255,255,.7);
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+
+.sp-landing {
+  max-width: 640px;
+  margin: 24px auto 28px;
+}
+.sp-landing-hint code {
+  background: rgba(255,255,255,.7);
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+
+/* 주제별 자료실 (카테고리 카드) */
+.sp-cats {
+  max-width: 720px;
+  margin: 0 auto 20px;
+  padding: 0 12px;
+}
+.sp-cats-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-dark);
+  padding: 4px 4px 12px;
+  letter-spacing: .02em;
+}
+.sp-cats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.sp-cat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px;
+  border-radius: 4px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  transition: transform .12s, filter .12s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  min-height: 64px;
+}
+.sp-cat:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  text-decoration: none;
+  color: #fff;
+}
+.sp-cat-ic { font-size: 28px; line-height: 1; flex-shrink: 0; }
+.sp-cat-meta { flex: 1; min-width: 0; }
+.sp-cat-name { font-weight: 600; font-size: 14px; }
+.sp-cat-desc {
+  font-size: 11px;
+  opacity: .9;
+  margin-top: 2px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.sp-cat-arrow { font-size: 14px; opacity: .8; flex-shrink: 0; }
+
+.sp-cat.c-1 { background: #0078D7; }
+.sp-cat.c-2 { background: #00B294; }
+.sp-cat.c-3 { background: #5C2D91; }
+.sp-cat.c-4 { background: #D83B01; }
+.sp-cat.c-5 { background: #107C10; }
+.sp-cat.c-6 { background: #B146C2; }
+
+/* 추천 자료 섹션 */
+.sp-featured {
+  max-width: 760px;
+  margin: 20px auto 24px;
+  padding: 0 12px;
+  border-top: 1px solid #e1e8f0;
+  padding-top: 18px;
+}
+.sp-featured-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-dark);
+  margin-bottom: 4px;
+}
+.sp-featured-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+.sp-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+/* 모바일에서 카드 1열로 */
+@media (max-width: 480px) {
+  .sp-cats-grid { grid-template-columns: 1fr; }
+  .sp-cat-desc { -webkit-line-clamp: 3; }
+}
+
+/* ==========================================================
    앱: 파일 뷰어 (PDF / PPTX)
 ========================================================== */
 .app-viewer {
