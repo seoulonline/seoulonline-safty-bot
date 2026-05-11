@@ -217,62 +217,7 @@ img { display: block; }
 .widget-title { font-weight: 600; margin-bottom: 6px; color: var(--accent-dark); }
 .widget-body { line-height: 1.55; }
 
-/* ==========================================================
-   모바일 런치패드 (모바일에서만 노출)
-========================================================== */
-.mobile-launchpad {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  z-index: 2;
-  padding: 80px 24px 80px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.ml-header {
-  text-align: center;
-  color: #fff;
-  margin-bottom: 22px;
-}
-.ml-header img {
-  width: 84px; height: 84px; margin: 0 auto 10px;
-  filter: drop-shadow(0 6px 18px rgba(0,0,0,.4));
-}
-.ml-header .ml-title { font-size: 19px; font-weight: 500; letter-spacing: .1em; }
-.ml-header .ml-sub { font-size: 12px; opacity: .85; letter-spacing: .12em; margin-top: 2px; }
-
-.ml-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-.ml-tile {
-  border-radius: 10px;
-  padding: 18px 14px;
-  color: #fff;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 120px;
-  border: 0;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0,0,0,.18);
-  transition: transform .12s, filter .12s;
-}
-.ml-tile:active { transform: scale(.97); filter: brightness(1.05); }
-.ml-tile .ml-ic { font-size: 30px; line-height: 1; }
-.ml-tile .ml-name { font-size: 15px; font-weight: 600; }
-.ml-tile .ml-desc { font-size: 11px; opacity: .92; line-height: 1.4; }
-
-.ml-tile.t-blue { background: var(--tile-blue); }
-.ml-tile.t-darkblue { background: var(--accent-dark); }
-.ml-tile.t-cyan { background: var(--tile-cyan); }
-.ml-tile.t-green { background: var(--tile-green); }
-.ml-tile.t-orange { background: var(--tile-orange); }
-.ml-tile.t-purple { background: var(--tile-purple); }
+/* (이전의 mobile-launchpad UI는 제거되었습니다 — 모바일에서도 데스크톱 아이콘과 창을 그대로 사용) */
 
 /* ==========================================================
    창 (Window)
@@ -613,6 +558,7 @@ img { display: block; }
 .tile.t-cyan { background: var(--tile-cyan); }
 .tile.t-purple { background: var(--tile-purple); }
 .tile.t-orange { background: var(--tile-orange); }
+.tile.t-red { background: var(--tile-red); }
 .tile.t-green { background: var(--tile-green); }
 .tile.t-darkblue { background: var(--accent-dark); }
 
@@ -802,25 +748,660 @@ img { display: block; }
 .check-footer { margin-top: 14px; display: flex; justify-content: flex-end; }
 
 /* ==========================================================
-   앱: 자료실
+   앱: 자료 폴더 (파일 탐색기)
 ========================================================== */
-.app-resources { padding: 18px 22px; height: 100%; overflow-y: auto; }
-.res-header { margin-bottom: 12px; }
-.res-title { font-size: 17px; font-weight: 600; color: var(--accent-dark); }
-.res-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-
-.res-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-.res-item {
-  display: flex; gap: 12px;
-  padding: 14px;
-  border: 1px solid #e6e8ec;
-  border-radius: 2px;
-  background: #fafbfd;
-  align-items: flex-start;
+.app-explorer {
+  display: flex; flex-direction: column; height: 100%;
+  background: #fff;
 }
-.res-item .ri-ic { font-size: 24px; flex-shrink: 0; }
-.res-item .ri-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-.res-item .ri-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.55; }
+
+/* 도구 모음 */
+.exp-toolbar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 8px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e1e1e1;
+  flex-shrink: 0;
+}
+.exp-nav-btn {
+  width: 28px; height: 28px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 2px;
+  color: #333;
+  transition: all .12s;
+}
+.exp-nav-btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: #d0d0d0;
+}
+.exp-nav-btn:disabled { color: #b8b8b8; cursor: not-allowed; }
+
+.exp-address {
+  flex: 1;
+  height: 28px;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 2px;
+  padding: 0 10px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  color: #333;
+  margin-left: 4px;
+}
+.exp-address-icon { font-size: 13px; }
+.exp-address-path {
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.exp-address-path::-webkit-scrollbar { display: none; }
+
+.addr-crumb {
+  cursor: pointer;
+  color: var(--accent);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.addr-crumb:hover {
+  background: rgba(0, 120, 215, 0.08);
+  text-decoration: underline;
+}
+.addr-current { font-weight: 600; color: #1f1f1f; }
+.addr-sep { color: #b0b0b0; margin: 0 4px; }
+
+/* 본문 */
+.exp-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  padding: 14px 16px;
+  min-height: 0;
+}
+.exp-files {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.exp-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all .12s;
+  text-align: center;
+  user-select: none;
+}
+.exp-file:hover {
+  background: #e5f1fb;
+  border-color: #bdddf5;
+}
+.exp-file.selected {
+  background: #cce4f7;
+  border-color: #99c5eb;
+}
+
+.exp-file-thumb {
+  width: 64px; height: 78px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  background: #fff;
+  border: 1px solid #c0c0c0;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+}
+.exp-file-thumb::before {
+  /* 모서리 접힌 효과 */
+  content: "";
+  position: absolute;
+  top: 0; right: 0;
+  border-style: solid;
+  border-width: 0 14px 14px 0;
+  border-color: transparent #f0f0f0 transparent transparent;
+}
+.exp-file-thumb-glyph {
+  font-size: 28px;
+  margin-top: 4px;
+}
+.exp-file-thumb-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: .04em;
+}
+.exp-file-thumb.t-pdf .exp-file-thumb-badge { background: #d93025; }
+.exp-file-thumb.t-pptx .exp-file-thumb-badge { background: #d04423; }
+.exp-file-thumb.t-other .exp-file-thumb-badge { background: #5a6577; }
+
+/* 폴더 항목 */
+.exp-folder .exp-folder-thumb {
+  width: 72px; height: 78px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 8px;
+}
+.exp-folder-glyph {
+  font-size: 60px;
+  line-height: 1;
+  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.12));
+}
+
+.exp-file-name {
+  font-size: 12px;
+  color: #1f1f1f;
+  word-break: break-all;
+  line-height: 1.35;
+  max-width: 100%;
+}
+.exp-file-desc {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+.exp-empty {
+  padding: 36px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.exp-empty .ee-ic { font-size: 42px; opacity: .55; margin-bottom: 8px; }
+.exp-empty .ee-msg { font-size: 13px; line-height: 1.6; }
+.exp-empty .ee-hint { font-size: 11px; margin-top: 8px; opacity: .8; line-height: 1.6; }
+
+/* 상태 표시줄 */
+.exp-status {
+  flex-shrink: 0;
+  padding: 4px 14px;
+  border-top: 1px solid #e1e1e1;
+  background: #f5f5f5;
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* ==========================================================
+   앱: 자료 폴더 (SharePoint 폴더 임베드)
+========================================================== */
+.app-sharepoint {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f5f5f5;
+}
+
+.sp-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #0078D7 0%, #2B88D8 100%);
+  color: #fff;
+  flex-shrink: 0;
+}
+.sp-folder-icon {
+  font-size: 36px;
+  line-height: 1;
+  filter: drop-shadow(1px 2px 2px rgba(0,0,0,.25));
+}
+.sp-banner-info { flex: 1; min-width: 0; }
+.sp-banner-title {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sp-banner-sub {
+  font-size: 12px;
+  opacity: .92;
+  margin-top: 2px;
+}
+.sp-open-link {
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.4);
+  padding: 8px 14px;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background .12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.sp-open-link:hover { background: rgba(255,255,255,.32); }
+
+.sp-frame-host {
+  flex: 1;
+  position: relative;
+  background: #fff;
+  min-height: 0;
+  overflow: hidden;
+}
+.sp-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+/* 로딩 인디케이터 */
+.sp-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #fff;
+  color: #555;
+  font-size: 13px;
+  z-index: 2;
+  transition: opacity .3s ease;
+}
+.sp-loading.hidden { opacity: 0; pointer-events: none; }
+.sp-loading-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid #e0e0e0;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spSpin 1s linear infinite;
+}
+@keyframes spSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* iframe 차단 시 폴백 */
+.sp-fallback {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #eef4fb 0%, #d8e7f5 100%);
+  z-index: 3;
+}
+.sp-fallback.show { display: flex; }
+.sp-fb-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 28px 26px;
+  text-align: center;
+  max-width: 420px;
+  box-shadow: 0 10px 32px rgba(0, 60, 120, .15);
+}
+.sp-fb-icon { font-size: 48px; margin-bottom: 8px; }
+.sp-fb-title { font-size: 16px; font-weight: 600; color: var(--accent-dark); margin-bottom: 8px; }
+.sp-fb-msg { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 16px; }
+.sp-fb-btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 22px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background .12s;
+}
+.sp-fb-btn:hover { background: var(--accent-light); }
+.sp-fb-hint { font-size: 11px; color: #888; margin-top: 12px; }
+
+.sp-footer-bar {
+  padding: 10px 16px;
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  font-size: 11px;
+  color: #666;
+  flex-shrink: 0;
+  text-align: center;
+  line-height: 1.55;
+}
+
+@media (max-width: 720px) {
+  .sp-banner { padding: 12px 14px; gap: 10px; }
+  .sp-folder-icon { font-size: 30px; }
+  .sp-banner-title { font-size: 14px; }
+  .sp-banner-sub { font-size: 11px; }
+  .sp-open-link { padding: 7px 10px; font-size: 11px; }
+}
+
+/* ==========================================================
+   앱: 파일 뷰어 (PDF / PPTX)
+========================================================== */
+.app-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #2a2a2a;
+}
+.viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e1e1e1;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #1f1f1f;
+}
+.viewer-icon { font-size: 16px; }
+.viewer-name { font-weight: 600; }
+.viewer-spacer { flex: 1; }
+.viewer-dl {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  transition: all .12s;
+}
+.viewer-dl:hover { background: var(--accent); color: #fff; }
+.viewer-host {
+  flex: 1;
+  background: #2a2a2a;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+.viewer-host iframe {
+  width: 100%; height: 100%; border: 0; display: block;
+  background: #fff;
+}
+.viewer-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 24px;
+  color: #ddd;
+  background: #2a2a2a;
+}
+.viewer-fallback .vf-ic { font-size: 64px; margin-bottom: 16px; opacity: .6; }
+.viewer-fallback .vf-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+.viewer-fallback .vf-msg { font-size: 13px; line-height: 1.7; max-width: 480px; }
+.viewer-fallback a {
+  margin-top: 18px;
+  display: inline-block;
+  padding: 10px 22px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 2px;
+  font-size: 13px;
+}
+.viewer-fallback a:hover { background: var(--accent-light); }
+
+/* ==========================================================
+   앱: 정보안전 챌린지 (마리오 풍 미니게임)
+========================================================== */
+.app-game {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0d1b2f;
+  color: #fff;
+  font-family: 'Segoe UI', '맑은 고딕', sans-serif;
+}
+.game-hud {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #0a1729;
+  border-bottom: 1px solid #1a2942;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.hud-item { font-weight: 500; letter-spacing: .02em; }
+.hud-spacer { flex: 1; }
+.hud-lives { font-size: 13px; letter-spacing: -2px; }
+.hud-restart {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  color: #fff;
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.hud-restart:hover { background: rgba(255,255,255,.2); }
+
+.game-stage {
+  flex: 1;
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: #5BAEF0;
+  overflow: hidden;
+  min-height: 0;
+}
+.game-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+  image-rendering: pixelated;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  outline: none;
+}
+
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 14, 28, .75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 20px;
+  z-index: 5;
+}
+.game-overlay.show { display: flex; }
+
+.q-card {
+  background: #fff;
+  color: #1f1f1f;
+  border-radius: 6px;
+  padding: 22px 26px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.q-card .q-tag {
+  display: inline-block;
+  font-size: 11px; font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+.q-text { font-size: 15px; font-weight: 600; line-height: 1.55; margin-bottom: 14px; }
+.q-opts { display: flex; flex-direction: column; gap: 7px; }
+.q-opt {
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  background: #f8f9fb;
+  border: 1px solid #d6dae0;
+  padding: 11px 14px;
+  border-radius: 2px;
+  cursor: pointer;
+  line-height: 1.4;
+  color: #1f1f1f;
+  transition: all .12s;
+}
+.q-opt:hover { background: #e8f1fc; border-color: var(--accent); }
+
+.q-result {
+  background: #fff;
+  color: #1f1f1f;
+  border-radius: 6px;
+  padding: 22px 26px;
+  max-width: 520px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.q-result .q-result-head {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.q-result.q-correct .q-result-head { color: var(--tile-green); }
+.q-result.q-wrong .q-result-head { color: var(--tile-red); }
+.q-result .q-ex {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.6;
+  text-align: left;
+  background: #f5f7fa;
+  padding: 12px 14px;
+  border-radius: 2px;
+  margin-top: 10px;
+}
+
+.end-card {
+  background: #fff;
+  color: #1f1f1f;
+  border-radius: 6px;
+  padding: 26px 30px;
+  text-align: center;
+  max-width: 440px;
+  box-shadow: 0 14px 44px rgba(0,0,0,.5);
+}
+.end-emoji { font-size: 52px; line-height: 1; margin-bottom: 8px; }
+.end-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; color: var(--accent-dark); }
+.end-score { font-size: 28px; font-weight: 200; margin: 14px 0 4px; color: #1f1f1f; }
+.end-best { font-size: 12px; color: #777; margin-bottom: 18px; }
+.end-newbest {
+  display: inline-block;
+  font-size: 11px;
+  background: #ffd400;
+  color: #5a4500;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  margin: 4px 0 14px;
+  animation: bestPulse 1.4s ease infinite;
+}
+@keyframes bestPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.end-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  padding: 10px 24px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.end-btn:hover { background: var(--accent-light); }
+.end-top {
+  margin-top: 14px;
+  font-size: 11px;
+  color: #777;
+  text-align: left;
+  border-top: 1px solid #e5e8ee;
+  padding-top: 12px;
+}
+.end-top .top-title { font-weight: 600; color: #444; margin-bottom: 6px; }
+.end-top ol { padding-left: 20px; margin: 0; }
+.end-top li { margin-bottom: 2px; }
+
+.game-instructions {
+  padding: 8px 14px;
+  background: #0a1729;
+  border-top: 1px solid #1a2942;
+  font-size: 11px;
+  color: #b9c7dc;
+  text-align: center;
+  flex-shrink: 0;
+  line-height: 1.55;
+}
+.game-instructions strong { color: #fff; }
+
+/* 모바일 터치 컨트롤 */
+.game-touch-controls {
+  position: absolute;
+  bottom: 12px;
+  left: 0; right: 0;
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 4;
+}
+.tc-group { display: flex; gap: 8px; }
+.tc-btn {
+  width: 58px; height: 58px;
+  background: rgba(255,255,255,.22);
+  border: 2px solid rgba(255,255,255,.5);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.tc-btn:active { background: rgba(255,255,255,.4); transform: scale(.95); }
+.tc-jump {
+  width: 76px; height: 76px;
+  font-size: 28px;
+  background: rgba(231, 76, 60, .5);
+  border-color: rgba(255, 200, 200, .7);
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .game-touch-controls { display: flex; }
+}
 
 /* ==========================================================
    앱: 소개
@@ -852,9 +1433,8 @@ img { display: block; }
 .quiz-body::-webkit-scrollbar,
 .app-cards::-webkit-scrollbar,
 .app-checklist::-webkit-scrollbar,
-.app-resources::-webkit-scrollbar,
-.app-about::-webkit-scrollbar,
-.mobile-launchpad::-webkit-scrollbar { width: 12px; }
+.exp-body::-webkit-scrollbar,
+.app-about::-webkit-scrollbar { width: 12px; }
 .window-body::-webkit-scrollbar-track,
 .start-menu-right::-webkit-scrollbar-track,
 .quiz-body::-webkit-scrollbar-track { background: transparent; }
@@ -879,6 +1459,8 @@ img { display: block; }
 
 /* ==========================================================
    📱 모바일 (max-width: 720px)
+   - 윈도우 데스크톱 메타포 유지 (아이콘 + 창 + 시작 메뉴)
+   - 카드형 런치패드는 사용하지 않음
 ========================================================== */
 @media (max-width: 720px) {
 
@@ -887,15 +1469,27 @@ img { display: block; }
   .boot-sub { font-size: 12px; }
   .boot-logo-mark img { width: 96px; height: 96px; }
 
-  /* 데스크톱 위젯 / 바탕화면 아이콘 / 워터마크 숨기기 */
+  /* 위젯은 가로폭 부족으로 숨김, 워터마크와 아이콘은 유지 */
   .desktop-widgets { display: none; }
-  .desktop-icons { display: none; }
-  .wallpaper-logo { display: none; }
 
-  /* 모바일 런치패드 노출 */
-  .mobile-launchpad { display: flex; }
+  /* 바탕화면 아이콘: 모바일에서도 세로 한 줄 (윈도우 데스크톱 느낌 유지) */
+  .desktop-icons {
+    top: 12px;
+    left: 12px;
+    grid-template-columns: 84px;
+    grid-auto-rows: 90px;
+    gap: 2px;
+  }
+  .desktop-icon { padding: 6px 2px; font-size: 11px; }
+  .desktop-icon .ico { font-size: 34px; }
 
-  /* 작업 표시줄 */
+  /* 워터마크 로고는 살짝 축소해서 그대로 노출 */
+  .wallpaper-logo { padding-bottom: 60px; }
+  .wallpaper-logo img { width: 150px; height: 150px; }
+  .wallpaper-name { font-size: 20px; margin-top: 14px; letter-spacing: .12em; }
+  .wallpaper-sub { font-size: 11px; letter-spacing: .16em; }
+
+  /* 작업 표시줄 - 터치 친화 사이즈 */
   .taskbar { height: 48px; }
   .start-btn { width: 56px; }
   .search-box { display: none; }
@@ -919,7 +1513,7 @@ img { display: block; }
   .tile { padding: 12px; font-size: 13px; }
   .tile .tile-icon { font-size: 26px; }
 
-  /* 창은 항상 풀스크린 (JS에서도 처리하지만 안전망) */
+  /* 창은 자동으로 풀스크린 (JS에서 maximize 처리) */
   .window {
     max-width: 100vw;
     max-height: calc(100vh - 48px);
@@ -932,8 +1526,14 @@ img { display: block; }
   .title-bar .tb-title { font-size: 13px; }
 
   /* 앱 콘텐츠 */
-  .app-quiz, .app-cards, .app-checklist, .app-resources { padding: 16px; }
-  .quiz-title, .cards-title, .check-title, .res-title { font-size: 16px; }
+  .app-quiz, .app-cards, .app-checklist { padding: 16px; }
+  .quiz-title, .cards-title, .check-title { font-size: 16px; }
+  .exp-files { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .exp-file-thumb { width: 56px; height: 70px; }
+  .exp-file-thumb-glyph { font-size: 24px; }
+  .exp-file-name { font-size: 11px; }
+  .viewer-toolbar { padding: 8px 10px; font-size: 11px; }
+  .viewer-name { max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .quiz-question { font-size: 14px; }
   .quiz-option { font-size: 13px; padding: 13px; }
   .check-item { font-size: 13px; padding: 12px; }
@@ -957,10 +1557,14 @@ img { display: block; }
    📱 작은 모바일 (max-width: 420px)
 ========================================================== */
 @media (max-width: 420px) {
-  .ml-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .ml-tile { min-height: 110px; padding: 14px 12px; }
-  .ml-tile .ml-name { font-size: 14px; }
-  .ml-tile .ml-ic { font-size: 26px; }
+  .desktop-icons {
+    grid-template-columns: 78px;
+    grid-auto-rows: 84px;
+  }
+  .desktop-icon .ico { font-size: 30px; }
+
+  .wallpaper-logo img { width: 120px; height: 120px; }
+  .wallpaper-name { font-size: 17px; }
 
   .tiles { grid-template-columns: repeat(2, 1fr); }
   .tile.large { grid-column: span 2; aspect-ratio: 2 / 1; }
@@ -974,7 +1578,7 @@ img { display: block; }
    가로 모드 (랜드스케이프) 모바일 보정
 ========================================================== */
 @media (max-width: 900px) and (orientation: landscape) and (max-height: 480px) {
-  .start-menu { height: calc(100vh - 40px); }
-  .mobile-launchpad { padding-top: 60px; padding-bottom: 60px; }
-  .ml-grid { grid-template-columns: repeat(3, 1fr); }
+  .start-menu { height: calc(100vh - 48px); }
+  .wallpaper-logo img { width: 100px; height: 100px; }
+  .wallpaper-name { font-size: 16px; margin-top: 10px; }
 }
